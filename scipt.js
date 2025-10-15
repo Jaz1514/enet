@@ -1,252 +1,129 @@
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-const spotsPerDay = 6;
-const STORAGE_KEYS = {
-  employees: "parknet_employees",
-  baseline: "parknet_baseline",
-  absences: "parknet_absences"
-};
-
-let employees = [];
-let baselineSpots = {};
-let absences = {};
-
-function isoDate(d) {
-  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0, 10);
+/* Base */
+body {
+  font-family: Arial, sans-serif;
+  background: #fff;
+  margin: 0;
+  color: #333;
 }
-function getCurrentWeekDates() {
-  const today = new Date();
-  const dow = today.getDay();
-  const mondayOffset = (dow + 6) % 7;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - mondayOffset);
-  const map = {};
-  days.forEach((dayName, idx) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + idx);
-    map[dayName] = { iso: isoDate(d), label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) };
-  });
-  return map;
+header {
+  background: #007BFF;
+  color: #fff;
+  text-align: center;
+  padding: 1rem;
+  font-size: 1.5rem;
+  font-weight: bold;
 }
-function purgeExpiredAbsences() {
-  const todayISO = isoDate(new Date());
-  const updated = {};
-  for (const date in absences) {
-    if (date >= todayISO) updated[date] = absences[date];
-  }
-  absences = updated;
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  padding: 1rem;
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(employees));
-  localStorage.setItem(STORAGE_KEYS.baseline, JSON.stringify(baselineSpots));
-  localStorage.setItem(STORAGE_KEYS.absences, JSON.stringify(absences));
+/* Parking Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
 }
-function loadState() {
-  employees = JSON.parse(localStorage.getItem(STORAGE_KEYS.employees)) || ["Alice Johnson", "Bob Smith", "Charlie Nguyen"];
-  baselineSpots = JSON.parse(localStorage.getItem(STORAGE_KEYS.baseline)) || {};
-  if (Object.keys(baselineSpots).length === 0) {
-    days.forEach(day => baselineSpots[day] = Array(spotsPerDay).fill(null));
-  }
-  absences = JSON.parse(localStorage.getItem(STORAGE_KEYS.absences)) || {};
-  purgeExpiredAbsences();
+.day-column {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 0.75rem;
 }
-
-const getSortedEmployees = () => [...employees].sort((a, b) => a.localeCompare(b));
-
-function findEmployeeSpotIndexBaseline(day, employee) {
-  return baselineSpots[day].findIndex(name => name === employee);
+.day-column h3 {
+  text-align: center;
+  margin-bottom: 0.2rem;
 }
-function assignEmployeeToDayBaseline(employee, day) {
-  if (findEmployeeSpotIndexBaseline(day, employee) !== -1) return true;
-  const freeIndex = baselineSpots[day].findIndex(s => s === null);
-  if (freeIndex === -1) return false;
-  baselineSpots[day][freeIndex] = employee;
-  saveState();
-  return true;
+.day-date {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 0.5rem;
 }
-function removeEmployeeFromDayBaseline(employee, day) {
-  const idx = findEmployeeSpotIndexBaseline(day, employee);
-  if (idx !== -1) {
-    baselineSpots[day][idx] = null;
-    saveState();
-    return true;
-  }
-  return false;
+.spot {
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin: 0.45rem 0;
+  text-align: center;
+  font-weight: bold;
+  color: #fff;
 }
-
-function isAbsentOnDate(employee, dateISO) {
-  return Array.isArray(absences[dateISO]) && absences[dateISO].includes(employee);
+.free { background: #28A745; }
+.reserved { background: #ccc; color: #000; }
+.spot button {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
-function addAbsenceForDay(employee, day) {
-  const weekDates = getCurrentWeekDates();
-  const dateISO = weekDates[day].iso;
-  if (!absences[dateISO]) absences[dateISO] = [];
-  if (!absences[dateISO].includes(employee)) {
-    absences[dateISO].push(employee);
-    saveState();
-  }
+.reserve-btn { background: #007BFF; color: #fff; }
+.free-btn { background: #dc3545; color: #fff; }
+.spot button:hover { opacity: 0.9; }
+
+/* Admin Section */
+.admin-section {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 1rem;
 }
-
-function getEffectiveSpotsForCurrentWeek() {
-  const weekDates = getCurrentWeekDates();
-  const effective = {};
-  days.forEach(day => {
-    effective[day] = baselineSpots[day].map(name => {
-      if (!name) return null;
-      const dateISO = weekDates[day].iso;
-      return isAbsentOnDate(name, dateISO) ? null : name;
-    });
-  });
-  return effective;
+.admin-section h2 {
+  margin: 0 0 0.75rem 0;
 }
-
-/*********** Rendering ***********/
-function renderGrid() {
-  const grid = document.getElementById('parkingGrid');
-  grid.innerHTML = '';
-  const effective = getEffectiveSpotsForCurrentWeek();
-  const weekDates = getCurrentWeekDates();
-
-  days.forEach(day => {
-    const col = document.createElement('div');
-    col.className = 'day-column';
-    col.innerHTML = `<h3>${day}</h3><div class="day-date">${weekDates[day].label}</div>`;
-
-    effective[day].forEach((spotName, index) => {
-      const spotDiv = document.createElement('div');
-      spotDiv.className = 'spot ' + (spotName ? 'reserved' : 'free');
-
-      if (spotName) {
-        spotDiv.innerHTML = `
-          <span><strong>${spotName}</strong></span><br/>
-          <button class="free-btn" onclick="markAbsence('${spotName}', '${day}')">Free Spot</button>
-        `;
-      } else {
-        spotDiv.innerHTML = `
-          <span>Free</span><br/>
-          <button class="reserve-btn" onclick="reserveSpot('${day}', ${index})">Reserve</button>
-        `;
-      }
-      col.appendChild(spotDiv);
-    });
-    grid.appendChild(col);
-  });
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
 }
+.admin-actions input {
+  flex: 1;
+  padding: 0.5rem;
+}
+.admin-actions button {
+  padding: 0.5rem 0.75rem;
+  background: #007BFF;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.admin-actions button:hover { opacity: 0.9; }
 
-function reserveSpot(day, index) {
-  const name = prompt("Enter your name:");
-  if (!name || !employees.includes(name)) {
-    alert("Name not found in employee list.");
-    return;
-  }
-  const effective = getEffectiveSpotsForCurrentWeek();
-  if (effective[day][index] === null) {
-    baselineSpots[day][index] = name;
-    saveState();
-    renderGrid();
-    renderAdminSection();
-  }
+/* Admin Employees Table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-table th, .admin-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0.6rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+.admin-table thead th {
+  background: #f7f7f7;
+  font-weight: bold;
+}
+.admin-table .emp-name {
+  text-align: left;
+  font-weight: 600;
+}
+.admin-table button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.admin-table .remove-btn {
+  background: #dc3545;
+  color: #fff;
 }
 
-function markAbsence(employee, day) {
-  addAbsenceForDay(employee, day);
-  renderGrid();
-  renderAdminSection();
+/* Responsive */
+@media (max-width: 768px) {
+  .grid { grid-template-columns: 1fr; }
+  .admin-actions { flex-direction: column; align-items: stretch; }
 }
-
-/*********** Admin ***********/
-function addEmployee() {
-  const input = document.getElementById('newEmployeeName');
-  const name = input.value.trim();
-  if (!name) return alert("Enter a valid name");
-  if (employees.includes(name)) return alert("Employee already exists");
-  employees.push(name);
-  input.value = '';
-  saveState();
-  renderGrid();
-  renderAdminSection();
-}
-
-function removeEmployee(employee) {
-  days.forEach(day => {
-    baselineSpots[day] = baselineSpots[day].map(n => n === employee ? null : n);
-  });
-  employees = employees.filter(e => e !== employee);
-  saveState();
-  renderGrid();
-  renderAdminSection();
-}
-
-function handleEmployeeDayToggle(employee, day, checked) {
-  if (checked) {
-    const ok = assignEmployeeToDayBaseline(employee, day);
-    if (!ok) alert(`No free spots left on ${day}`);
-  } else {
-    removeEmployeeFromDayBaseline(employee, day);
-  }
-  renderGrid();
-  renderAdminSection();
-}
-
-function renderAdminSection() {
-  const container = document.getElementById('adminEmployees');
-  container.innerHTML = '';
-  const table = document.createElement('table');
-  table.className = 'admin-table';
-
-  const thead = document.createElement('thead');
-  const hr = document.createElement('tr');
-  hr.innerHTML = `<th>Employee</th>${days.map(d => `<th>${d}</th>`).join('')}<th>Action</th>`;
-  thead.appendChild(hr);
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  getSortedEmployees().forEach(emp => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="emp-name">${emp}</td>`;
-    days.forEach(day => {
-      const td = document.createElement('td');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = baselineSpots[day].includes(emp);
-      cb.addEventListener('change', e => handleEmployeeDayToggle(emp, day, e.target.checked));
-      td.appendChild(cb);
-      tr.appendChild(td);
-    });
-    const tdDel = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.textContent = 'Remove';
-    btn.className = 'remove-btn';
-    btn.onclick = () => removeEmployee(emp);
-    tdDel.appendChild(btn);
-    tr.appendChild(tdDel);
-    tbody.appendChild(tr);
-  });
-
-  // Totals row
-  const effective = getEffectiveSpotsForCurrentWeek();
-  const totalsRow = document.createElement('tr');
-  totalsRow.innerHTML = `<td><strong>Totals</strong></td>` +
-    days.map(day => {
-      const booked = effective[day].filter(s => s).length;
-      const left = spotsPerDay - booked;
-      return `<td><strong>${booked}</strong> booked<br>${left} left</td>`;
-    }).join('') + `<td></td>`;
-  tbody.appendChild(totalsRow);
-
-  table.appendChild(tbody);
-  container.appendChild(table);
-
-  document.getElementById('addEmployeeBtn').onclick = addEmployee;
-}
-
-/*********** Init ***********/
-function init() {
-  loadState();
-  saveState();
-  renderGrid();
-  renderAdminSection();
-}
-window.reserveSpot = reserveSpot;
-window.markAbsence = markAbsence;
-init();
