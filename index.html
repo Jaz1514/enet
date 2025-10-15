@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>ParkNet - Office Parking Management</title>
   style.css
 </head>
@@ -11,23 +10,23 @@
     ParkNet - Office Parking Management
   </header>
 
-  <main class="container">
-    <!-- Main Parking Grid -->
-    <section aria-label="Parking Grid">
-      <div class="grid" id="parkingGrid"></div>
-    </section>
-
-    <!-- Admin Section -->
-    <section class="admin-section" aria-label="Admin Controls">
+  <div class="container">
+    <section>
       <h2>Admin</h2>
-      <div class="admin-actions">
-        <input type="text" id="newEmployeeName" placeholder="Add new employee (full name)"/>
-        <button id="addEmployeeBtn">Add Employee</button>
+      <div class="admin-section">
+        <div class="admin-actions">
+          <input type="text" id="newEmployeeName" placeholder="Add Employee">
+          <button id="addEmployeeBtn">Add</button>
+        </div>
+        <div id="adminEmployees"></div>
       </div>
-      <div id="adminEmployees"></div>
     </section>
-  </main>
+    <section>
+      <div id="parkingGrid" class="grid"></div>
+    </section>
+  </div>
 
-  script.js</script>
+  scipt.js</script>
 </body>
 </html>
+``
